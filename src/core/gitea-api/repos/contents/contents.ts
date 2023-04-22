@@ -132,24 +132,30 @@ export const updateContent = async ({
     contentObject = response.content;
   } catch (e) {
     console.log("sha?", e?.response?.data);
-    if (e?.response?.data?.match("sha does not match")) {
-      console.log("sha", e?.response?.data);
-    }
-
-    console.warn('Branch doesnt exists. Thus, creating new branch', e);
-
-    try {
-      const _payload = payload({
-        new_branch: branch, content, message, author, sha,
+    // Identify file conflicts
+    // TODO: how should we handle this? overwrite? reload?
+    const ERROR_SHA_DOES_NOT_MATCH = "sha does not match";
+    if (e?.response?.data?.message?.match(ERROR_SHA_DOES_NOT_MATCH)) {
+      console.log("sha!", e?.response?.data);
+      const _newContent = await readContent({
+        owner, repo, filepath, config
       });
-      const response = await put({
-        url, payload: _payload, config,
-      });
-      contentObject = response.content;
-    } catch {
-      // Allow original error to propagate.
-      // This allows switching based on error messages above.
-      throw e;
+      console.log("sha: read new content", _newContent);
+    } else {
+      console.warn('Branch doesnt exists. Thus, creating new branch', e);
+      try {
+        const _payload = payload({
+          new_branch: branch, content, message, author, sha,
+        });
+        const response = await put({
+          url, payload: _payload, config,
+        });
+        contentObject = response.content;
+      } catch {
+        // Allow original error to propagate.
+        // This allows switching based on error messages above.
+        throw e;
+      }
     }
   };
 
