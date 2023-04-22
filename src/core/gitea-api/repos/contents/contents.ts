@@ -84,7 +84,7 @@ export const createContent = async ({
       contentObject = response.content;
     }
   } catch (error) {
-    throw new Error('Error creating file.');
+    throw new Error('Error creating file: ' + error);
   };
   return contentObject;
 };
@@ -121,19 +121,24 @@ export const updateContent = async ({
   const url = Path.join(apiPath, 'repos', owner, repo, 'contents', filepath);
   let contentObject: ContentObject;
 
+  // TODO: Check to see if branch exists to set branch or new_branch in payload
   try {
-    // TODO: Check to see if branch exists to set branch or new_branch in payload
-    try {
-      const _payload = payload({
-        branch, content, message, author, sha,
-      });
-      const response = await put({
-        url, payload: _payload, config,
-      });
-      contentObject = response.content;
-    } catch (e) {
-      console.warn('Branch doesnt exists. Thus, creating new branch', e);
+    const _payload = payload({
+      branch, content, message, author, sha,
+    });
+    const response = await put({
+      url, payload: _payload, config,
+    });
+    contentObject = response.content;
+  } catch (e) {
+    console.log("sha?", e?.response?.data);
+    if (e?.response?.data?.match("sha does not match")) {
+      console.log("sha", e?.response?.data);
+    }
 
+    console.warn('Branch doesnt exists. Thus, creating new branch', e);
+
+    try {
       const _payload = payload({
         new_branch: branch, content, message, author, sha,
       });
@@ -141,12 +146,13 @@ export const updateContent = async ({
         url, payload: _payload, config,
       });
       contentObject = response.content;
-    };
-  } catch (error) {
-    // Allow original error to propagate.
-    // This allows switching based on error messages above.
-    throw error;
+    } catch {
+      // Allow original error to propagate.
+      // This allows switching based on error messages above.
+      throw e;
+    }
   };
+
   return contentObject;
 };
 
@@ -202,7 +208,7 @@ export const ensureContent = async ({
     } catch {
       // create contentObject directly when unconnected to branch or repo.
       contentObject = {
-        name: filepath.slice(filepath.lastIndexOf('/')+1),
+        name: filepath.slice(filepath.lastIndexOf('/') + 1),
         content: content || '',
         path: filepath,
         sha: 'new',
@@ -213,9 +219,9 @@ export const ensureContent = async ({
   //
   // add on open validation checks here for source side or existing branch content
   //
-  const _content:string = await getContentFromFile(contentObject);
-  if ( onOpenValidation ) {
-    onOpenValidation(filepath, _content,contentObject.html_url);
+  const _content: string = await getContentFromFile(contentObject);
+  if (onOpenValidation) {
+    onOpenValidation(filepath, _content, contentObject.html_url);
   }
   return contentObject;
 };

@@ -10,6 +10,7 @@ export const ERROR_SERVER_UNREACHABLE = 'ERR_SERVER_UNREACHABLE';
 export const ERROR_SERVER_DISCONNECT_ERROR = 'ERROR_SERVER_DISCONNECT_ERROR';
 export const ERROR_NETWORK_DISCONNECTED = 'ERR_NETWORK_DISCONNECTED';
 export const ERROR_NETWORK_ERROR = 'Network Error';
+export const ERROR_OVERWRITE = "status code 422";
 
 const cacheStore = localforage.createInstance({
   driver: [localforage.INDEXEDDB],
@@ -92,14 +93,14 @@ function getServerError(errorMessage, response) {
  * @param {string} serverUrl - base path for server (e.g. 'https://git.door43.org')
  * @param {ExtendConfig} config - optional axios compatible config parameters
  */
-export const checkIfServerOnline = async (serverUrl, config: ExtendConfig= {}): Promise<void> => {
+export const checkIfServerOnline = async (serverUrl, config: ExtendConfig = {}): Promise<void> => {
   if (!navigator.onLine) {
     throw getServerError(ERROR_NETWORK_DISCONNECTED, null);
   }
 
   let response;
   try {
-      // checking if server responds
+    // checking if server responds
     response = await axios.get(`${serverUrl}/${apiPath}/version`, config);
   } catch (e) {
     const errorMessage = e && e.message ? e.message : '';
@@ -149,8 +150,8 @@ export const get = async ({
         response = e?.response;
       } else { // this is not http error, so get what we can from exception
         response = {
-            statusText: e?.toString(),
-            status: 1,
+          statusText: e?.toString(),
+          status: 1,
         }
       }
     }
@@ -203,9 +204,11 @@ export const defaultErrorMessages = {
   passwordError: 'Password is invalid.',
   networkError: 'There is an issue with your network connection. Please try again.',
   serverError: 'There is an issue with the server please try again.',
+  overwriteFileError: 'The file has changed on the server. Saving your work will overwrite the changes on the server.',
 };
 
 export const parseError = ({ error, messages = defaultErrorMessages }) => {
+  console.log("parseError", error);
   const errorMessage = error && error.message ? error.message : '';
   let friendlyError = {};
 
@@ -221,7 +224,12 @@ export const parseError = ({ error, messages = defaultErrorMessages }) => {
       isRecoverable: false,
     };
   }
-  else {
+  else if (errorMessage.match(ERROR_OVERWRITE)) {
+    friendlyError = {
+      errorMessage: messages.overwriteFileError,
+      isRecoverable: false,
+    };
+  } else {
     friendlyError = {
       errorMessage: messages.genericError,
       isRecoverable: true,

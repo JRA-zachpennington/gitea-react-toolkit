@@ -21,7 +21,7 @@ export const ensureFile = async ({
     content: defaultContent, message: _message, author,
     onOpenValidation,
   });
-  
+
   return file;
 };
 
@@ -81,10 +81,17 @@ export const saveFile = async ({
       config, owner, repo, branch, filepath,
       content, message: _message, author, sha,
     });
-  } catch {
-    response = await createContent({
-      config, owner, repo, branch, filepath, content, message: _message, author, sha
-    });
+  } catch (updateError) {
+    console.log("updateError", updateError, updateError?.response?.data);
+
+    try {
+      response = await createContent({
+        config, owner, repo, branch, filepath, content, message: _message, author, sha
+      });
+    } catch {
+      // Assume original error was the root cause.
+      throw updateError;
+    }
   }
   return response;
 };
@@ -96,61 +103,50 @@ export const manifestFileComparer = ({
 }) => {
   const item1Path = item1?.path;
   const item2Path = item2?.path;
-  
+
   let compare = 0;
 
-  if (item1Path && item2Path && repository && repository.books)
-  {
+  if (item1Path && item2Path && repository && repository.books) {
     const book1Matches = item1Path.match(REGEX_TSV_BOOK_ABBREVIATION);
     const book2Matches = item2Path.match(REGEX_TSV_BOOK_ABBREVIATION);
 
-    const isTsvFiles = (book1Matches && book2Matches)?true:false;
-    if (isTsvFiles)
-    {
+    const isTsvFiles = (book1Matches && book2Matches) ? true : false;
+    if (isTsvFiles) {
       const book1 = book1Matches[1];
       const book2 = book2Matches[1];
-      
+
       let iiBook1 = 0;
       let iiBook2 = 0;
-      for (let ii=0; ii < repository.books.length; ii++)
-      {
-        if (repository.books[ii].toLowerCase() == book1.toLowerCase())
-        {
+      for (let ii = 0; ii < repository.books.length; ii++) {
+        if (repository.books[ii].toLowerCase() == book1.toLowerCase()) {
           iiBook1 = ii;
         }
-        if (repository.books[ii].toLowerCase() == book2.toLowerCase())
-        {
+        if (repository.books[ii].toLowerCase() == book2.toLowerCase()) {
           iiBook2 = ii;
         }
       }
 
-      if (iiBook1 < iiBook2)
-      {
+      if (iiBook1 < iiBook2) {
         compare = -1;
       }
-      else if (iiBook2 < iiBook1)
-      {
+      else if (iiBook2 < iiBook1) {
         compare = 1;
       }
-      else
-      {
+      else {
         compare = 0;
       }
     }
     else // BOTH are NOT TSV file: (could be manifest file).
     {
-      if (book1Matches)
-      {
+      if (book1Matches) {
         // Book1 is a TSV, but book2 is a non-TSV file.
         return 1;
       }
-      else if (book2Matches)
-      {
+      else if (book2Matches) {
         // Book2 is the TSV file; but book1 is NOT.
         return -1;
       }
-      else
-      {
+      else {
         compare = item1Path.localeCompare(item2Path);
       }
     }
